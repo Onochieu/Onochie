@@ -1,2 +1,151 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+use interviewSample1;
+
+/* 
+1. Extracting all Fields and Records from the xlsx file by using the path 
+C:\Users\umeog\Downloads\Sql class\3NF Project\ModifiedGradeRecords.xlsx 
+*/
+
+SELECT * FROM [ModifiedGradeRecords];
+
+/* To maintain 1NF on the flat file
+(Each table cell should contain a single value. / Each record needs to be unique.)
+Check for duplicates on the primary key
+*/
+
+SELECT 
+		studentID, first_name AS firstNAME, lastName
+FROM
+		[modifiedGradeRecords]
+GROUP BY
+		studentID, first_Name, lastName
+HAVING
+    COUNT(*) > 1
+
+--No result is generated after the query. 1NF satisfied
+
+/* To maintain 2NF on the flat file
+ (Single Column Primary Key that does not functionally dependant on any subset of candidate key relation)
+ 
+-- Step 1 and Step 2: Create two tables according to 2NF from [modifiedGradeRecords] as follows
+- studentDetails; 
+- examResult.
+
+
+ Step 1. Creating a new table named studentDetails that contains the following fields
+- studentID
+- firstName
+- lastName 
+*/
+
+
+SELECT 
+		studentID, first_Name as firstName, lastName 
+INTO	studentDetails 
+FROM	[modifiedGradeRecords]
+SELECT * 
+FROM 
+		StudentDetails;
+
+
+/* Step 2. Creating a new table for examResult that contains the following fields
+- midtermExam
+- finalExam
+- assignment1
+- assignment2
+- examID
+- studentID
+*/
+
+SELECT 
+		studentID, midtermExam, finalExam, assignment1, assignment2 
+INTO	examResult 
+FROM	[modifiedGradeRecords]
+SELECT	* 
+FROM	examResult;
+
+--CREATE a unique examID for examResult Table
+ALTER TABLE examResult
+Add examID Int Identity(1, 1);
+SELECT * FROM examResult;
+
+-- VIEW new tables created
+SELECT * FROM examResult;
+SELECT * FROM studentDetails;
+
+/* The two tables examResult and studentDetails are now also in 3NF
+(Has no transitive functional dependencies)
+Creating a new table named totalsScore that contains the following fields
+
+- examID
+- totalpoints
+*/
+
+SELECT 
+		examID, (assignment1+assignment2+Finalexam+Midtermexam)/4 AS totalAverage
+INTO	totalsScore 
+FROM	examResult
+SELECT	* 
+FROM	totalsScore;
+
+--Alter the Table to decimal places for StudentAverage Column--
+SELECT	* 
+FROM			totalsScore;
+ALTER TABLE		totalsScore
+ALTER COLUMN	totalAverage DECIMAL(3, 2)
+
+
+-- Creating a new table named finalGRADE that contains the following fields
+- examID
+- grade
+
+
+		
+BEGIN TRAN		Lastcolumn
+SELECT
+	examID,	Grade=CASE WHEN totalAverage>=0.97 THEN 'A+'
+				WHEN totalAverage>=0.93 and totalAverage<=0.96 THEN 'A'
+				WHEN totalAverage>=0.90 and totalAverage<=0.92 THEN 'A-'
+				WHEN totalAverage>=0.87 and totalAverage<=0.89 THEN 'B+'
+				WHEN totalAverage>=0.83 and totalAverage<=0.86 THEN 'B'
+				WHEN totalAverage>=0.80 and totalAverage<=0.82 THEN 'B-'
+				WHEN totalAverage>=0.77 and totalAverage<=0.79 THEN 'C+'
+				WHEN totalAverage>=0.73 and totalAverage<=0.76 THEN 'C'
+				WHEN totalAverage>=0.70 and totalAverage<=0.72 THEN 'C-'
+				WHEN totalAverage>=0.67 and totalAverage<=0.69 THEN 'D+'
+				WHEN totalAverage>=0.63 and totalAverage<=0.66 THEN 'D'
+				WHEN totalAverage>=0.60 and totalAverage<=0.62 THEN 'D-'
+				WHEN totalAverage<=0.59 THEN 'F'
+				end
+INTO			finalGRADE
+FROM			totalsScore
+COMMIT
+		
+SELECT *
+FROM		finalGRADE
+SELECT * 
+FROM		totalsScore;
+SELECT * 
+FROM		examResult;
+SELECT * 
+FROM		studentDetails;		
+
+SELECT 
+			[studentDetails].firstName, [studentDetails].lastName, [studentDetails].studentID,
+			[examResult].assignment1, [examResult].assignment2,	[examResult].finalExam, [examResult].midtermExam,
+			[finalGRADE].Grade
+
+INTO		completeStudentReport
+FROM		studentDetails
+INNER JOIN	examResult
+ON			studentDetails.studentID=examResult.studentID
+INNER JOIN	finalGRADE
+ON			examResult.examID=finalGrade.examID
+
+
+
+DROP TABLE IF EXISTS examResult;
+DROP TABLE IF EXISTS totalsScore;
+DROP TABLE IF EXISTS finalGRADE;
+DROP TABLE IF EXISTS studentDetails;
+
+-- End of report
